@@ -10,8 +10,8 @@ app.use(express.json());
 // Serve Swagger UI at /docs
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-//Stage 0: Basic server setup
-app.get('/', (req, res)=>{res.send('Hello, server!');});
+// Stage 0: Basic server setup
+// app.get('/', (req, res)=>{res.send('Hello, server!');});
 
 
 
