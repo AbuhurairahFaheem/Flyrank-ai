@@ -152,32 +152,58 @@ app.get('/tasks/:id', (req, res) => {
 // });
 
 
-// Stage 3: POST /tasks - Create a new task
-app.post('/tasks', (req, res) => {
-    const { title } = req.body; // Extract title from request body
+// // Stage 3: POST /tasks - Create a new task
+// app.post('/tasks', (req, res) => {
+//     const { title } = req.body; // Extract title from request body
 
-    // Validation: Server never trusts the client! Check if title is missing or empty
+//     // Validation: Server never trusts the client! Check if title is missing or empty
+//     if (!title || typeof title !== 'string' || title.trim() === '') {
+//         return res.status(400).json({ error: "Title is required and must be a non-empty string" });
+//     }
+
+//     // Generate the next free ID
+//     const newId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
+
+//     // Create the new task object
+//     const newTask = {
+//         id: newId,
+//         title: title.trim(),
+//         done: false // Defaults to false
+//     };
+
+//     // Add it to our in-memory list
+//     tasks.push(newTask);
+
+//     // Return status 201 (Created) along with the new task
+//     res.status(201).json(newTask);
+// });
+
+// Stage 2: POST /tasks - Create a new task and persist in db
+    const { title } = req.body;
     if (!title || typeof title !== 'string' || title.trim() === '') {
         return res.status(400).json({ error: "Title is required and must be a non-empty string" });
     }
 
-    // Generate the next free ID
-    const newId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
+    try {
+        const cleanTitle = title.trim();
+        const stmt = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+        
+        // better-sqlite3 returns info with lastInsertRowid
+        const info = stmt.run(cleanTitle, 0);
 
-    // Create the new task object
-    const newTask = {
-        id: newId,
-        title: title.trim(),
-        done: false // Defaults to false
-    };
+        const newTask = {
+            id: Number(info.lastInsertRowid),
+            title: cleanTitle,
+            done: false
+        };
 
-    // Add it to our in-memory list
-    tasks.push(newTask);
-
-    // Return status 201 (Created) along with the new task
-    res.status(201).json(newTask);
+        // Return status 201 (Created)
+        res.status(201).json(newTask);
+    } catch (err) {
+        console.error('Error inserting task:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
-
 
 // Stage 4: PUT /tasks/:id - Update an existing task's title and/or done status
 app.put('/tasks/:id', (req, res) => {
