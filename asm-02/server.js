@@ -8,6 +8,7 @@ const PORT = 3000
 const Database = require('better-sqlite3');
 const db = new Database('tasks.db');
 
+
 db.pragma('journal_mode = WAL');
 
 // Create table if missing
@@ -77,30 +78,78 @@ app.get('/health', (req, res) => {
 
 
 
-// Stage 2 with 3 example tasks
-let tasks = [
-    { id: 1, title: "Learn Express basics", done: true },
-    { id: 2, title: "Build a CRUD API", done: false },
-    { id: 3, title: "Publish code to GitHub", done: false }
-];
+// // Stage 2 with 3 example tasks
+// let tasks = [
+//     { id: 1, title: "Learn Express basics", done: true },
+//     { id: 2, title: "Build a CRUD API", done: false },
+//     { id: 3, title: "Publish code to GitHub", done: false }
+// ];
 
-// Stage 2: GET /tasks - returns the whole list of tasks
+// // Stage 2: GET /tasks - returns the whole list of tasks
+// app.get('/tasks', (req, res) => {
+//     res.json(tasks);
+// });
+
+// Helper to format SQLite row (turns integer 0/1 back to true/false boolean)
+function formatTask(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        title: row.title,
+        done: Boolean(row.done)
+    };
+}
+
+// Stage 1: GET /tasks - read all tasks from SQLite
 app.get('/tasks', (req, res) => {
-    res.json(tasks);
+    try {
+        const stmt = db.prepare('SELECT id, title, done FROM tasks');
+        const rows = stmt.all();
+        const formattedTasks = rows.map(formatTask);
+        res.json(formattedTasks);
+    } catch (err) {
+        console.error('Error fetching tasks:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// Stage 2: GET /tasks/:id - returns one task by its ID
+// Stage 1: GET /tasks/:id - read a single task using parameterized query
 app.get('/tasks/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10); // Parse the path parameter to a number
-    const task = tasks.find(t => t.id === id);
+    const id = parseInt(req.params.id, 10);
 
-    if (!task) {
-        // Return 404 with a JSON error if the task is not found
-        return res.status(404).json({ error: `Task ${id} not found` });
+    // If ID is not a valid number, return 404 right away
+    if (isNaN(id)) {
+        return res.status(404).json({ error: `Task ${req.params.id} not found` });
     }
 
-    res.json(task);
+    try {
+        // Use parameterized query with '?' placeholder
+        const stmt = db.prepare('SELECT id, title, done FROM tasks WHERE id = ?');
+        const row = stmt.get(id);
+
+        if (!row) {
+            return res.status(404).json({ error: `Task ${id} not found` });
+        }
+
+        res.json(formatTask(row));
+    } catch (err) {
+        console.error('Error fetching task by ID:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
+
+// // Stage 2: GET /tasks/:id - returns one task by its ID
+// app.get('/tasks/:id', (req, res) => {
+//     const id = parseInt(req.params.id, 10); // Parse the path parameter to a number
+//     const task = tasks.find(t => t.id === id);
+
+//     if (!task) {
+//         // Return 404 with a JSON error if the task is not found
+//         return res.status(404).json({ error: `Task ${id} not found` });
+//     }
+
+//     res.json(task);
+// });
 
 
 // Stage 3: POST /tasks - Create a new task
